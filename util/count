@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use strict;
+use IO::Socket::INET;
+
+@ARGV or die "USAGE: $0 metric [incr]\n";
+
+my $s = IO::Socket::INET->new(
+	PeerAddr => '127.0.0.1',
+	PeerPort => 5015,
+	Proto    => 'udp',
+) or die "failed to create socket\n";
+
+my $raw = pack("A5a256a32", "STAT1", @ARGV, 1);
+$s->send($raw);
