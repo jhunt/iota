@@ -47,6 +47,14 @@ void counter_set_free(counter_set_t *s)
 	free(s);
 }
 
+counter_t* counter_at(counter_set_t *s, size_t idx)
+{
+	assert(s);
+
+	if (idx >= s->next) return NULL;
+	return E(s, idx);
+}
+
 counter_t* counter_find(counter_set_t *s, const char *key)
 {
 	assert(s);
@@ -121,6 +129,14 @@ void sample_set_free(sample_set_t *s)
 	if (!s) return;
 	free(s->set);
 	free(s);
+}
+
+sample_t* sample_at(sample_set_t *s, size_t idx)
+{
+	assert(s);
+
+	if (idx >= s->next) return NULL;
+	return E(s, idx);
 }
 
 sample_t* sample_find(sample_set_t *s, const char *key)

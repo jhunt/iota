@@ -19,6 +19,7 @@
 #include "core.h"
 #include <assert.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -28,6 +29,8 @@
 
 #define SAMPLED_BUFFER 2048
 #define SAMPLED_PORT 5016
+
+#define INTERVAL 5
 
 int main(int argc, char **argv)
 {
@@ -46,35 +49,68 @@ int main(int argc, char **argv)
 	int rc = bind(fd, (struct sockaddr*)(&sa), sizeof(sa));
 	assert(rc == 0);
 
-	packet_t pkt;
-	size_t nread;
-	while ((nread = recv(fd, &pkt, sizeof(pkt), MSG_WAITALL)) > 0) {
-		if (!packet_is_valid(&pkt)) continue;
+	fd_set fds;
+	FD_ZERO(&fds);
+	FD_SET(fd, &fds);
 
-		errno = 0;
-		long double v = packet_payload_ld(&pkt);
-		if (errno) {
-			fprintf(stderr, "BOGUS payload value '%s'\n", packet_payload(&pkt));
-			continue;
+	struct timeval timeout;
+	timeout.tv_sec = INTERVAL;
+	timeout.tv_usec = 0;
+
+	while ((rc = select(fd + 1, &fds, NULL, NULL, &timeout)) >= 0) {
+		FD_SET(fd, &fds);
+
+		if (rc == 0) {
+			timeout.tv_sec = INTERVAL;
+
+			pid_t pid = fork();
+			if (pid < 0) {
+				perror("fork");
+				continue;
+			}
+			if (pid == 0) {
+				fprintf(stderr, "=====[ flushing data... ]=====\n");
+
+				char buf[1024];
+				size_t i;
+				for (i = 0; ; i++) {
+					sample_t *s = sample_at(SAMPLES, i);
+					if (!s) break;
+
+					sample_to_string(s, buf, 1024);
+					fprintf(stderr, "%s\n", buf);
+				}
+				exit(0);
+			}
+
+		} else {
+			packet_t pkt;
+			size_t nread = recv(fd, &pkt, sizeof(pkt), MSG_WAITALL);
+			if (nread < 0) continue;
+			if (!packet_is_valid(&pkt)) continue;
+
+			errno = 0;
+			errno = 0;
+			long double v = packet_payload_ld(&pkt);
+			if (errno) {
+				fprintf(stderr, "BOGUS payload value '%s'\n", packet_payload(&pkt));
+				continue;
+			}
+
+			sample_t *s = sample_find(SAMPLES, packet_metric(&pkt));
+			if (!s) {
+				fprintf(stderr, "Ran out of sample slots.  You should think about tuning.\n");
+				continue;
+			}
+
+			sample_add(s, v);
+			fprintf(stderr, "add %Lf to %s;\n"
+							"      n/min/max/sum = %lu/%Lf/%Lf/%Lf\n"
+							"    mean/var/stddev = %Lf/%Lf/%Lf\n",
+							v, sample_name(s),
+							sample_n(s), sample_min(s), sample_max(s), sample_sum(s),
+							sample_mean(s), sample_variance(s), sample_stddev(s));
 		}
-
-		sample_t *c = sample_find(SAMPLES, packet_metric(&pkt));
-		if (!c) {
-			fprintf(stderr, "Ran out of sample slots.  You should think about tuning.\n");
-			continue;
-		}
-
-		sample_add(c, v);
-		fprintf(stderr, "add %Lf to %s;\n"
-		                "      n/min/max/sum = %lu/%Lf/%Lf/%Lf\n"
-		                "    mean/var/stddev = %Lf/%Lf/%Lf\n",
-		                v, sample_name(c),
-		                sample_n(c), sample_min(c), sample_max(c), sample_sum(c),
-		                sample_mean(c), sample_variance(c), sample_stddev(c));
-
-		char buf[1024];
-		sample_to_string(c, buf, 1024);
-		fprintf(stderr, ":: %s\n", buf);
 	}
 
 	return 0;

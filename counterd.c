@@ -19,6 +19,7 @@
 #include "core.h"
 #include <assert.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -28,6 +29,8 @@
 
 #define COUNTERD_BUFFER 2048
 #define COUNTERD_PORT 5015
+
+#define INTERVAL 5
 
 int main(int argc, char **argv)
 {
@@ -46,30 +49,62 @@ int main(int argc, char **argv)
 	int rc = bind(fd, (struct sockaddr*)(&sa), sizeof(sa));
 	assert(rc == 0);
 
-	packet_t pkt;
-	size_t nread;
-	while ((nread = recv(fd, &pkt, sizeof(pkt), MSG_WAITALL)) > 0) {
-		if (!packet_is_valid(&pkt)) continue;
+	fd_set fds;
+	FD_ZERO(&fds);
+	FD_SET(fd, &fds);
 
-		errno = 0;
-		uint8_t incr = packet_payload_u8(&pkt);
-		if (errno) {
-			fprintf(stderr, "BOGUS increment value '%s'\n", packet_payload(&pkt));
-			continue;
+	struct timeval timeout;
+	timeout.tv_sec = INTERVAL;
+	timeout.tv_usec = 0;
+
+	while ((rc = select(fd + 1, &fds, NULL, NULL, &timeout)) >= 0) {
+		FD_SET(fd, &fds);
+
+		if (rc == 0) {
+			timeout.tv_sec = INTERVAL;
+
+			pid_t pid = fork();
+			if (pid < 0) {
+				perror("fork");
+				continue;
+			}
+			if (pid == 0) {
+				fprintf(stderr, "=====[ flushing data... ]=====\n");
+
+				char buf[1024];
+				size_t i;
+				for (i = 0; ; i++) {
+					counter_t *c = counter_at(COUNTERS, i);
+					if (!c) break;
+
+					counter_to_string(c, buf, 1024);
+					fprintf(stderr, "%s\n", buf);
+				}
+				exit(0);
+			}
+
+		} else {
+			packet_t pkt;
+			size_t nread = recv(fd, &pkt, sizeof(pkt), MSG_WAITALL);
+			if (nread < 0) continue;
+			if (!packet_is_valid(&pkt)) continue;
+
+			errno = 0;
+			uint8_t incr = packet_payload_u8(&pkt);
+			if (errno) {
+				fprintf(stderr, "BOGUS increment value '%s'\n", packet_payload(&pkt));
+				continue;
+			}
+
+			counter_t *c = counter_find(COUNTERS, packet_metric(&pkt));
+			if (!c) {
+				fprintf(stderr, "Ran out of counter slots.  You should think about tuning.\n");
+				continue;
+			}
+
+			counter_inc(c, incr);
+			fprintf(stderr, "incr %s by %u to %lu\n", counter_name(c), incr, counter_value(c));
 		}
-
-		counter_t *c = counter_find(COUNTERS, packet_metric(&pkt));
-		if (!c) {
-			fprintf(stderr, "Ran out of counter slots.  You should think about tuning.\n");
-			continue;
-		}
-
-		counter_inc(c, incr);
-		fprintf(stderr, "incr %s by %u to %lu\n", counter_name(c), incr, counter_value(c));
-
-		char buf[1024];
-		counter_to_string(c, buf, 1024);
-		fprintf(stderr, ":: %s\n", buf);
 	}
 
 	return 0;

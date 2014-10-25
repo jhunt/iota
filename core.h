@@ -63,6 +63,7 @@ typedef struct {
 
 counter_set_t* counter_set_new(size_t len);
 void counter_set_free(counter_set_t *s);
+counter_t* counter_at(counter_set_t *s, size_t idx);
 counter_t* counter_find(counter_set_t *s, const char *key);
 counter_t* counter_next(counter_set_t *s, const char *key);
 int counter_to_string(counter_t *c, char *buf, size_t max);
@@ -76,6 +77,7 @@ int counter_reset(counter_t *c);
 
 sample_set_t* sample_set_new(size_t len);
 void sample_set_free(sample_set_t *s);
+sample_t* sample_at(sample_set_t *s, size_t idx);
 sample_t* sample_find(sample_set_t *s, const char *key);
 sample_t* sample_next(sample_set_t *s, const char *key);
 int sample_to_string(sample_t *c, char *buf, size_t max);
