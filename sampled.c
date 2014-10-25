@@ -71,6 +71,10 @@ int main(int argc, char **argv)
 		                v, sample_name(c),
 		                sample_n(c), sample_min(c), sample_max(c), sample_sum(c),
 		                sample_mean(c), sample_variance(c), sample_stddev(c));
+
+		char buf[1024];
+		sample_to_string(c, buf, 1024);
+		fprintf(stderr, ":: %s\n", buf);
 	}
 
 	return 0;

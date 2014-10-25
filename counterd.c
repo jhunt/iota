@@ -66,6 +66,10 @@ int main(int argc, char **argv)
 
 		counter_inc(c, incr);
 		fprintf(stderr, "incr %s by %u to %lu\n", counter_name(c), incr, counter_value(c));
+
+		char buf[1024];
+		counter_to_string(c, buf, 1024);
+		fprintf(stderr, ":: %s\n", buf);
 	}
 
 	return 0;

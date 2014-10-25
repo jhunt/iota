@@ -73,13 +73,28 @@ counter_t* counter_next(counter_set_t *s, const char *key)
 	return E(s, s->next++);
 }
 
+int counter_to_string(counter_t *c, char *buf, size_t max)
+{
+	assert(c);
+	assert(buf);
+	assert(max > 0);
+
+	size_t n = snprintf(buf, max, "%s=%lu %u",
+			counter_name(c), counter_value(c), counter_rollover(c));
+
+	if (n < max)
+		return 0;
+
+	errno = ENOBUFS;
+	return -1;
+}
 
 int counter_inc(counter_t *c, uint8_t i)
 {
 	assert(c);
 	assert(i > 0);
 
-	if (COUNTER_MAX - i > c->value)
+	if (COUNTER_MAX - i < c->value)
 		c->rollover++;
 	c->value += i;
 	return 0;
@@ -134,6 +149,24 @@ sample_t* sample_next(sample_set_t *s, const char *key)
 	return E(s, s->next++);
 }
 
+int sample_to_string(sample_t *s, char *buf, size_t max)
+{
+	assert(s);
+	assert(buf);
+	assert(max > 0);
+
+	size_t n = snprintf(buf, max, "%s=%lu %Le %Le %Le %Le %Le %Le",
+			sample_name(s), sample_n(s),
+			sample_sum(s), sample_min(s), sample_max(s),
+			sample_mean(s), sample_variance(s), sample_stddev(s));
+
+	if (n < max)
+		return 0;
+
+	errno = ENOBUFS;
+	return -1;
+}
+
 int sample_add(sample_t *s, long double v)
 {
 	assert(s);
@@ -155,6 +188,8 @@ int sample_add(sample_t *s, long double v)
 	/* incremental variance calculation */
 	s->var_ = s->var;
 	s->var = ( (s->n - 1) * s->var_ + ( (v - s->mean_) * (v - s->mean) ) ) / s->n;
+
+	return 0;
 }
 
 int sample_reset(sample_t *s)
