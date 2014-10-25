@@ -171,9 +171,8 @@ int sample_to_string(sample_t *s, char *buf, size_t max)
 	assert(buf);
 	assert(max > 0);
 
-	size_t n = snprintf(buf, max, "%s=%lu %Le %Le %Le %Le %Le %Le",
-			sample_name(s), sample_n(s),
-			sample_sum(s), sample_min(s), sample_max(s),
+	size_t n = snprintf(buf, max, "%s=%lu %Le %Le %Le %Le %Le",
+			sample_name(s), sample_n(s), sample_min(s), sample_max(s),
 			sample_mean(s), sample_variance(s), sample_stddev(s));
 
 	if (n < max)
@@ -194,7 +193,6 @@ int sample_add(sample_t *s, long double v)
 		if (v < s->min) s->min = v;
 		if (v > s->max) s->max = v;
 	}
-	s->sum += v;
 	s->n++;
 
 	/* incremental mean calculation */
@@ -214,7 +212,7 @@ int sample_reset(sample_t *s)
 
 	s->n = 0;
 
-	s->sum = s->min = s->max = 0.0;
+	s->min   = s->max   = 0.0;
 	s->mean  = s->mean_ = 0.0;
 	s->var   = s->var_  = 0.0;
 

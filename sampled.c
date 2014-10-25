@@ -105,10 +105,10 @@ int main(int argc, char **argv)
 
 			sample_add(s, v);
 			fprintf(stderr, "add %Lf to %s;\n"
-							"      n/min/max/sum = %lu/%Lf/%Lf/%Lf\n"
+							"          n/min/max = %lu/%Lf/%Lf\n"
 							"    mean/var/stddev = %Lf/%Lf/%Lf\n",
 							v, sample_name(s),
-							sample_n(s), sample_min(s), sample_max(s), sample_sum(s),
+							sample_n(s), sample_min(s), sample_max(s),
 							sample_mean(s), sample_variance(s), sample_stddev(s));
 		}
 	}

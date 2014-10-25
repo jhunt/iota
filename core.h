@@ -44,7 +44,7 @@ typedef struct {
 typedef struct {
 	char      name[METRIC_NAME_MAX];
 	uint64_t  n;
-	long double sum, min, max;
+	long double min, max;
 	long double mean, mean_;
 	long double var,  var_;
 } sample_t;
@@ -87,7 +87,6 @@ int sample_reset(sample_t *s);
 
 #define sample_name(s)     (s)->name
 #define sample_n(s)        (s)->n
-#define sample_sum(s)      (s)->sum
 #define sample_min(s)      (s)->min
 #define sample_max(s)      (s)->max
 #define sample_mean(s)     (s)->mean
