@@ -20,6 +20,7 @@
 #define CORE_H
 
 #include <stdint.h>
+#include <math.h>
 #include <sys/types.h>
 
 #define COUNTER_MAX 0xffffffffffffffff
@@ -86,7 +87,7 @@ int sample_reset(sample_t *s);
 #define sample_max(s)      (s)->max
 #define sample_mean(s)     (s)->mean
 #define sample_variance(s) (s)->var
-#define sample_stddev(s)   sqrt((s)->stddev)
+#define sample_stddev(s)   sqrt((s)->var)
 
 packet_t* packet_new(int version);
 void packet_free(packet_t *p);

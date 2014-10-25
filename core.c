@@ -137,12 +137,24 @@ sample_t* sample_next(sample_set_t *s, const char *key)
 int sample_add(sample_t *s, long double v)
 {
 	assert(s);
+
+	if (s->n == 0) {
+		s->min = s->max = v;
+
+	} else {
+		if (v < s->min) s->min = v;
+		if (v > s->max) s->max = v;
+	}
 	s->sum += v;
-	if (v < s->min) s->min = v;
-	if (v > s->max) s->max = v;
-	/* incremental mean calculation */
-	/* incremental variance calculation */
 	s->n++;
+
+	/* incremental mean calculation */
+	s->mean_ = s->mean;
+	s->mean = s->mean_ + (v - s->mean_) / s->n;
+
+	/* incremental variance calculation */
+	s->var_ = s->var;
+	s->var = ( (s->n - 1) * s->var_ + ( (v - s->mean_) * (v - s->mean) ) ) / s->n;
 }
 
 int sample_reset(sample_t *s)
@@ -151,9 +163,9 @@ int sample_reset(sample_t *s)
 
 	s->n = 0;
 
-	s->sum = s->min = s->max = 0.0L;
-	s->mean  = s->mean_ = 0.0L;
-	s->var   = s->var_  = 0.0L;
+	s->sum = s->min = s->max = 0.0;
+	s->mean  = s->mean_ = 0.0;
+	s->var   = s->var_  = 0.0;
 
 	return 0;
 }
