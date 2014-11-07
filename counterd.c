@@ -30,8 +30,8 @@
 #include <arpa/inet.h>
 #include <vigor.h>
 
-#ifndef CONFIG_FILE
-#define CONFIG_FILE "/etc/iota/counterd.conf"
+#ifndef COUNTERD_CONFIG_FILE
+#define COUNTERD_CONFIG_FILE "/etc/iota/counterd.conf"
 #endif
 
 typedef struct {
@@ -45,7 +45,7 @@ static void read_options(options_t *opt, const char *file);
 int main(int argc, char **argv)
 {
 	options_t opt;
-	read_options(&opt, CONFIG_FILE);
+	read_options(&opt, COUNTERD_CONFIG_FILE);
 	fprintf(stderr, "starting up\n"
 	                "%u buffers flushed every %us\n"
 	                "bind *:%u\n",
