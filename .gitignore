@@ -1,4 +1,5 @@
 *.o
+*.conf
 counterd
 sampled
 t/01-variance

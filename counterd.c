@@ -21,20 +21,37 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <vigor.h>
 
-#define COUNTERD_BUFFER 2048
-#define COUNTERD_PORT 5015
+#ifndef CONFIG_FILE
+#define CONFIG_FILE "/etc/iota/counterd.conf"
+#endif
 
-#define INTERVAL 5
+typedef struct {
+	uint16_t    buffers;
+	uint16_t    port;
+	uint16_t    flush;
+} options_t;
+
+static void read_options(options_t *opt, const char *file);
 
 int main(int argc, char **argv)
 {
-	counter_set_t *COUNTERS = counter_set_new(COUNTERD_BUFFER);
+	options_t opt;
+	read_options(&opt, CONFIG_FILE);
+	fprintf(stderr, "starting up\n"
+	                "%u buffers flushed every %us\n"
+	                "bind *:%u\n",
+	                opt.buffers, opt.flush, opt.port);
+
+	counter_set_t *COUNTERS = counter_set_new(opt.buffers);
 	assert(COUNTERS);
 
 	int fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -44,7 +61,7 @@ int main(int argc, char **argv)
 	memset(&sa, 0, sizeof(sa));
 	sa.sin_family = AF_INET;
 	sa.sin_addr.s_addr = htons(INADDR_ANY);
-	sa.sin_port = htons(COUNTERD_PORT);
+	sa.sin_port = htons(opt.port);
 
 	int rc = bind(fd, (struct sockaddr*)(&sa), sizeof(sa));
 	assert(rc == 0);
@@ -54,14 +71,14 @@ int main(int argc, char **argv)
 	FD_SET(fd, &fds);
 
 	struct timeval timeout;
-	timeout.tv_sec = INTERVAL;
+	timeout.tv_sec = opt.flush;
 	timeout.tv_usec = 0;
 
 	while ((rc = select(fd + 1, &fds, NULL, NULL, &timeout)) >= 0) {
 		FD_SET(fd, &fds);
 
 		if (rc == 0) {
-			timeout.tv_sec = INTERVAL;
+			timeout.tv_sec = opt.flush;
 
 			pid_t pid = fork();
 			if (pid < 0) {
@@ -89,12 +106,13 @@ int main(int argc, char **argv)
 			if (nread < 0) continue;
 			if (!packet_is_valid(&pkt)) continue;
 
-			errno = 0;
+			int errno_ = errno; errno = 0;
 			uint8_t incr = packet_payload_u8(&pkt);
 			if (errno) {
 				fprintf(stderr, "BOGUS increment value '%s'\n", packet_payload(&pkt));
 				continue;
 			}
+			errno = errno_;
 
 			counter_t *c = counter_find(COUNTERS, packet_metric(&pkt));
 			if (!c) {
@@ -108,4 +126,69 @@ int main(int argc, char **argv)
 	}
 
 	return 0;
+}
+
+static void read_options(options_t *opt, const char *file)
+{
+	assert(opt);
+
+	CONFIG(config);
+	config_set(&config, "buffers", "2048");
+	config_set(&config, "port",    "5015");
+	config_set(&config, "flush",   "5");
+
+	FILE *io = fopen(file, "r");
+	if (!io) {
+		perror(file);
+		exit(1);
+	}
+
+	int rc = config_read(&config, io);
+	assert(rc == 0);
+	fclose(io);
+
+	/* save errno */
+	int errno_ = errno; errno = 0;
+	errno = 0;
+
+	char *val, *end;
+	unsigned long ul;
+
+	val = config_get(&config, "buffers");
+	ul = strtoul(val, &end, 0);
+	if (errno) {
+		perror("buffers");
+		exit(2);
+	}
+	if (ul > 65535) {
+		fprintf(stderr, "buffers value %lu is invalid (must be less than 65536)\n", ul);
+		exit(2);
+	}
+	opt->buffers = ul;
+
+	val = config_get(&config, "port");
+	ul = strtoul(val, &end, 0);
+	if (errno) {
+		perror("port");
+		exit(2);
+	}
+	if (ul > 65535) {
+		fprintf(stderr, "port value %lu is invalid (must be 0-65535)\n", ul);
+		exit(2);
+	}
+	opt->port = ul;
+
+	val = config_get(&config, "flush");
+	ul = strtoul(val, &end, 0);
+	if (errno) {
+		perror("flush");
+		exit(2);
+	}
+	if (ul > 86400) {
+		fprintf(stderr, "flush value %lu is larger than one day...\n", ul);
+		exit(2);
+	}
+	opt->flush = ul;
+
+	errno = errno_;
 }

@@ -14,6 +14,7 @@ TESTS += t/01-variance
 LDLIBS :=
 LDLIBS := -lm
 LDLIBS += -lctap
+LDLIBS += -lvigor
 
 all: $(BINARIES)
 clean:
