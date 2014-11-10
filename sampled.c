@@ -88,14 +88,35 @@ int main(int argc, char **argv)
 			if (pid == 0) {
 				fprintf(stderr, "=====[ flushing data... ]=====\n");
 
-				char buf[1024];
-				size_t i;
-				for (i = 0; ; i++) {
-					sample_t *s = sample_at(SAMPLES, i);
-					if (!s) break;
+				int pipefd[2];
+				rc = pipe(pipefd);
+				assert(rc == 0);
 
-					sample_to_string(s, buf, 1024);
-					fprintf(stderr, "%s\n", buf);
+				pid = fork();
+				if (pid < 0) {
+					perror("fork");
+					exit(1);
+				}
+
+				if (pid == 0) {
+					close(pipefd[1]);
+					dup2(pipefd[0], 0);
+					execl("/bin/cat", "cat", NULL);
+					exit(2);
+
+				} else {
+					close(pipefd[0]);
+					dup2(pipefd[1], 1);
+
+					char buf[1024];
+					size_t i;
+					for (i = 0; ; i++) {
+						sample_t *s = sample_at(SAMPLES, i);
+						if (!s) break;
+
+						sample_to_string(s, buf, 1024);
+						printf("%s\n", buf);
+					}
 				}
 				exit(0);
 			}
@@ -106,7 +127,6 @@ int main(int argc, char **argv)
 			if (nread < 0) continue;
 			if (!packet_is_valid(&pkt)) continue;
 
-			errno = 0;
 			errno = 0;
 			long double v = packet_payload_ld(&pkt);
 			if (errno) {
@@ -128,6 +148,9 @@ int main(int argc, char **argv)
 							sample_n(s), sample_min(s), sample_max(s),
 							sample_mean(s), sample_variance(s), sample_stddev(s));
 		}
+
+		while (waitpid(-1, &rc, WNOHANG) > 0)
+			;
 	}
 
 	return 0;
