@@ -1,5 +1,6 @@
 TODO
 
+- combine counterd / sampled into iotad
 - counter client
 - sample client
 - counterd --option --handling
