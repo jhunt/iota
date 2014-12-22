@@ -16,7 +16,7 @@
   You should have received a copy of the GNU General Public License along
   with iota.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "core.h"
+#include "iota.h"
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>

@@ -21,6 +21,6 @@
 
 #include <ctap.h>
 #include <stdlib.h>
-#include "../core.h"
+#include "../src/iota.h"
 
 #endif

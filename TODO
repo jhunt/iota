@@ -1,6 +1,5 @@
 TODO
 
-- autotoolify
 - daemonize counterd
 - counter client
 - daemonize sampled
