@@ -1,0 +1,11 @@
+TODO
+
+- autotoolify
+- daemonize counterd
+- counter client
+- daemonize sampled
+- sample client
+- better command support (flush)
+- check for mem leaks
+- memory usage analysis
+- perf testing
