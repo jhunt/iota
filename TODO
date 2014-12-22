@@ -1,9 +1,9 @@
 TODO
 
-- daemonize counterd
 - counter client
-- daemonize sampled
 - sample client
+- counterd --option --handling
+- sampled --option --handling
 - better command support (flush)
 - check for mem leaks
 - memory usage analysis

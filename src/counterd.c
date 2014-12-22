@@ -34,24 +34,35 @@
 #define COUNTERD_CONFIG_FILE "/etc/iota/counterd.conf"
 #endif
 
-typedef struct {
+#define DEFAULT_PIDFILE     "/var/run/counterd.pid"
+#define DEFAULT_RUNAS_USER  "root"
+#define DEFAULT_RUNAS_GROUP "root"
+
+static struct {
+	int         foreground;
+	char       *runas_user;
+	char       *runas_group;
+	char       *pidfile;
 	uint16_t    buffers;
 	uint16_t    port;
 	uint16_t    flush;
-} options_t;
+} OPTIONS = { 0 };
 
-static void read_options(options_t *opt, const char *file);
+static void read_options(const char *file);
 
 int main(int argc, char **argv)
 {
-	options_t opt;
-	read_options(&opt, COUNTERD_CONFIG_FILE);
+	OPTIONS.foreground  = 0;
+	OPTIONS.pidfile     = strdup(DEFAULT_PIDFILE);
+	OPTIONS.runas_user  = strdup(DEFAULT_RUNAS_USER);
+	OPTIONS.runas_group = strdup(DEFAULT_RUNAS_GROUP);
+	read_options(COUNTERD_CONFIG_FILE);
 	fprintf(stderr, "starting up\n"
 	                "%u buffers flushed every %us\n"
 	                "bind *:%u\n",
-	                opt.buffers, opt.flush, opt.port);
+	                OPTIONS.buffers, OPTIONS.flush, OPTIONS.port);
 
-	counter_set_t *COUNTERS = counter_set_new(opt.buffers);
+	counter_set_t *COUNTERS = counter_set_new(OPTIONS.buffers);
 	assert(COUNTERS);
 
 	int fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -61,7 +72,7 @@ int main(int argc, char **argv)
 	memset(&sa, 0, sizeof(sa));
 	sa.sin_family = AF_INET;
 	sa.sin_addr.s_addr = htons(INADDR_ANY);
-	sa.sin_port = htons(opt.port);
+	sa.sin_port = htons(OPTIONS.port);
 
 	int rc = bind(fd, (struct sockaddr*)(&sa), sizeof(sa));
 	assert(rc == 0);
@@ -71,14 +82,19 @@ int main(int argc, char **argv)
 	FD_SET(fd, &fds);
 
 	struct timeval timeout;
-	timeout.tv_sec = opt.flush;
+	timeout.tv_sec = OPTIONS.flush;
 	timeout.tv_usec = 0;
+
+	if (!OPTIONS.foreground) {
+		rc = daemonize(OPTIONS.pidfile, OPTIONS.runas_user, OPTIONS.runas_group);
+		assert(rc == 0);
+	}
 
 	while ((rc = select(fd + 1, &fds, NULL, NULL, &timeout)) >= 0) {
 		FD_SET(fd, &fds);
 
 		if (rc == 0) {
-			timeout.tv_sec = opt.flush;
+			timeout.tv_sec = OPTIONS.flush;
 
 			pid_t pid = fork();
 			if (pid < 0) {
@@ -128,10 +144,8 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-static void read_options(options_t *opt, const char *file)
+static void read_options(const char *file)
 {
-	assert(opt);
-
 	CONFIG(config);
 	config_set(&config, "buffers", "2048");
 	config_set(&config, "port",    "5015");
@@ -164,7 +178,7 @@ static void read_options(options_t *opt, const char *file)
 		fprintf(stderr, "buffers value %lu is invalid (must be less than 65536)\n", ul);
 		exit(2);
 	}
-	opt->buffers = ul;
+	OPTIONS.buffers = ul;
 
 	val = config_get(&config, "port");
 	ul = strtoul(val, &end, 0);
@@ -176,7 +190,7 @@ static void read_options(options_t *opt, const char *file)
 		fprintf(stderr, "port value %lu is invalid (must be 0-65535)\n", ul);
 		exit(2);
 	}
-	opt->port = ul;
+	OPTIONS.port = ul;
 
 	val = config_get(&config, "flush");
 	ul = strtoul(val, &end, 0);
@@ -188,7 +202,7 @@ static void read_options(options_t *opt, const char *file)
 		fprintf(stderr, "flush value %lu is larger than one day...\n", ul);
 		exit(2);
 	}
-	opt->flush = ul;
+	OPTIONS.flush = ul;
 
 	errno = errno_;
 }
